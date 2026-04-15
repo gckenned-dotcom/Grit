@@ -9,15 +9,17 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
+const DEFAULT_CATEGORIES = ['Development', 'Design', 'Marketing', 'Research', 'Operations', 'QA'];
+
 function App() {
   const [projects, setProjects] = useLocalStorage<Project[]>('grit-projects', []);
   const [tasks, setTasks] = useLocalStorage<Task[]>('grit-tasks', []);
+  const [categories, setCategories] = useLocalStorage<string[]>('grit-categories', DEFAULT_CATEGORIES);
 
   // Project CRUD
   const handleCreateProject = useCallback((data: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = new Date().toISOString();
-    const project: Project = { ...data, id: generateId(), createdAt: now, updatedAt: now };
-    setProjects((prev) => [project, ...prev]);
+    setProjects((prev) => [{ ...data, id: generateId(), createdAt: now, updatedAt: now }, ...prev]);
   }, [setProjects]);
 
   const handleUpdateProject = useCallback((id: string, data: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -34,8 +36,7 @@ function App() {
   // Task CRUD
   const handleCreateTask = useCallback((data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = new Date().toISOString();
-    const task: Task = { ...data, id: generateId(), createdAt: now, updatedAt: now };
-    setTasks((prev) => [task, ...prev]);
+    setTasks((prev) => [{ ...data, id: generateId(), createdAt: now, updatedAt: now }, ...prev]);
   }, [setTasks]);
 
   const handleUpdateTask = useCallback((id: string, data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -49,6 +50,18 @@ function App() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, [setTasks]);
 
+  // Category CRUD
+  const handleAddCategory = useCallback((name: string) => {
+    setCategories((prev) => {
+      if (prev.some((c) => c.toLowerCase() === name.toLowerCase())) return prev;
+      return [...prev, name];
+    });
+  }, [setCategories]);
+
+  const handleDeleteCategory = useCallback((name: string) => {
+    setCategories((prev) => prev.filter((c) => c !== name));
+  }, [setCategories]);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -58,9 +71,12 @@ function App() {
             <ProjectsPage
               projects={projects}
               tasks={tasks}
+              categories={categories}
               onCreateProject={handleCreateProject}
               onUpdateProject={handleUpdateProject}
               onDeleteProject={handleDeleteProject}
+              onAddCategory={handleAddCategory}
+              onDeleteCategory={handleDeleteCategory}
             />
           }
         />
@@ -70,9 +86,11 @@ function App() {
             <ProjectDetailPage
               projects={projects}
               tasks={tasks}
+              categories={categories}
               onCreateTask={handleCreateTask}
               onUpdateTask={handleUpdateTask}
               onDeleteTask={handleDeleteTask}
+              onAddCategory={handleAddCategory}
             />
           }
         />

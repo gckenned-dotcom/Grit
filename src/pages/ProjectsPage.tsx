@@ -1,23 +1,35 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FolderOpen, Pencil, Trash2, CheckSquare, LayoutGrid } from 'lucide-react';
+import { Plus, FolderOpen, Pencil, Trash2, CheckSquare, LayoutGrid, Tag } from 'lucide-react';
 import type { Project, Task } from '../types';
 import { ProjectModal } from '../components/ProjectModal';
+import { CategoryManagerModal } from '../components/CategoryManagerModal';
 
 interface ProjectsPageProps {
   projects: Project[];
   tasks: Task[];
+  categories: string[];
   onCreateProject: (data: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onUpdateProject: (id: string, data: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onDeleteProject: (id: string) => void;
+  onAddCategory: (name: string) => void;
+  onDeleteCategory: (name: string) => void;
 }
 
 export function ProjectsPage({
-  projects, tasks, onCreateProject, onUpdateProject, onDeleteProject,
+  projects, tasks, categories,
+  onCreateProject, onUpdateProject, onDeleteProject,
+  onAddCategory, onDeleteCategory,
 }: ProjectsPageProps) {
   const navigate = useNavigate();
-  const [showModal, setShowModal] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  const usedCategories = useMemo(
+    () => new Set(tasks.map((t) => t.category)),
+    [tasks]
+  );
 
   const getTaskStats = (projectId: string) => {
     const projectTasks = tasks.filter((t) => t.projectId === projectId);
@@ -35,7 +47,7 @@ export function ProjectsPage({
   const handleEdit = (e: React.MouseEvent, project: Project) => {
     e.stopPropagation();
     setEditingProject(project);
-    setShowModal(true);
+    setShowProjectModal(true);
   };
 
   return (
@@ -49,13 +61,25 @@ export function ProjectsPage({
             </div>
             <span className="text-lg font-bold text-gray-900">Grit</span>
           </div>
-          <button
-            onClick={() => { setEditingProject(null); setShowModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} />
-            New Project
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCategoryModal(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Tag size={15} />
+              Categories
+              <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5 font-medium">
+                {categories.length}
+              </span>
+            </button>
+            <button
+              onClick={() => { setEditingProject(null); setShowProjectModal(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus size={16} />
+              New Project
+            </button>
+          </div>
         </div>
       </header>
 
@@ -73,7 +97,7 @@ export function ProjectsPage({
             <h2 className="text-lg font-semibold text-gray-900 mb-2">No projects yet</h2>
             <p className="text-gray-500 text-sm mb-6">Create your first project to start tracking tasks.</p>
             <button
-              onClick={() => { setEditingProject(null); setShowModal(true); }}
+              onClick={() => { setEditingProject(null); setShowProjectModal(true); }}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <Plus size={16} />
@@ -141,7 +165,7 @@ export function ProjectsPage({
         )}
       </main>
 
-      {showModal && (
+      {showProjectModal && (
         <ProjectModal
           project={editingProject}
           onSave={(data) => {
@@ -150,10 +174,20 @@ export function ProjectsPage({
             } else {
               onCreateProject(data);
             }
-            setShowModal(false);
+            setShowProjectModal(false);
             setEditingProject(null);
           }}
-          onClose={() => { setShowModal(false); setEditingProject(null); }}
+          onClose={() => { setShowProjectModal(false); setEditingProject(null); }}
+        />
+      )}
+
+      {showCategoryModal && (
+        <CategoryManagerModal
+          categories={categories}
+          usedCategories={usedCategories}
+          onAdd={onAddCategory}
+          onDelete={onDeleteCategory}
+          onClose={() => setShowCategoryModal(false)}
         />
       )}
     </div>

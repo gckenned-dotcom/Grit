@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Search, SlidersHorizontal,
   LayoutGrid, List, CheckSquare, Clock, AlertTriangle, X,
 } from 'lucide-react';
-import type { Task, Project, Stage, Priority, Category } from '../types';
+import type { Task, Project, Stage, Priority } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { TaskModal } from '../components/TaskModal';
 import { stageConfig } from '../components/Badge';
@@ -12,9 +12,11 @@ import { stageConfig } from '../components/Badge';
 interface ProjectDetailPageProps {
   projects: Project[];
   tasks: Task[];
+  categories: string[];
   onCreateTask: (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onUpdateTask: (id: string, data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onDeleteTask: (id: string) => void;
+  onAddCategory: (name: string) => void;
 }
 
 type ViewMode = 'board' | 'list';
@@ -38,7 +40,8 @@ function sortTasks(tasks: Task[], sortKey: SortKey): Task[] {
 }
 
 export function ProjectDetailPage({
-  projects, tasks, onCreateTask, onUpdateTask, onDeleteTask,
+  projects, tasks, categories,
+  onCreateTask, onUpdateTask, onDeleteTask, onAddCategory,
 }: ProjectDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -49,9 +52,16 @@ export function ProjectDetailPage({
   const [viewMode, setViewMode] = useState<ViewMode>('board');
   const [search, setSearch] = useState('');
   const [filterPriority, setFilterPriority] = useState<Priority | ''>('');
-  const [filterCategory, setFilterCategory] = useState<Category | ''>('');
-  const [sortKey, setSortKey] = useState<SortKey>('createdAt');
+  const [filterCategory, setFilterCategory] = useState('');
+  // Default sort is priority — tasks always ordered critical → high → medium → low
+  const [sortKey, setSortKey] = useState<SortKey>('priority');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Categories that exist on this project's tasks (for filter dropdown)
+  const projectCategories = useMemo(() => {
+    const used = new Set(tasks.filter((t) => t.projectId === id).map((t) => t.category));
+    return categories.filter((c) => used.has(c));
+  }, [tasks, id, categories]);
 
   const projectTasks = useMemo(() => {
     let filtered = tasks.filter((t) => t.projectId === id);
@@ -202,9 +212,9 @@ export function ProjectDetailPage({
               onChange={(e) => setSortKey(e.target.value as SortKey)}
               className="px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="createdAt">Newest first</option>
-              <option value="dueDate">Due date</option>
               <option value="priority">Priority</option>
+              <option value="dueDate">Due date</option>
+              <option value="createdAt">Newest first</option>
               <option value="title">Title A–Z</option>
             </select>
 
@@ -248,18 +258,13 @@ export function ProjectDetailPage({
               <label className="text-xs font-medium text-gray-600">Category:</label>
               <select
                 value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value as Category | '')}
+                onChange={(e) => setFilterCategory(e.target.value)}
                 className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none"
               >
                 <option value="">All</option>
-                <option value="development">Development</option>
-                <option value="design">Design</option>
-                <option value="marketing">Marketing</option>
-                <option value="research">Research</option>
-                <option value="operations">Operations</option>
-                <option value="qa">QA</option>
-                <option value="devops">DevOps</option>
-                <option value="other">Other</option>
+                {projectCategories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
               </select>
             </div>
             {hasActiveFilters && (
@@ -289,10 +294,7 @@ export function ProjectDetailPage({
                       </span>
                     </div>
                     <button
-                      onClick={() => {
-                        setEditingTask(null);
-                        setShowModal(true);
-                      }}
+                      onClick={() => { setEditingTask(null); setShowModal(true); }}
                       className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                       title={`Add task to ${label}`}
                     >
@@ -345,7 +347,9 @@ export function ProjectDetailPage({
         <TaskModal
           task={editingTask}
           project={project}
+          categories={categories}
           onSave={handleSaveTask}
+          onAddCategory={onAddCategory}
           onClose={() => { setShowModal(false); setEditingTask(null); }}
         />
       )}

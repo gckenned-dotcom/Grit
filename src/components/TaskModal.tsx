@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import type { Task, Project, Priority, Stage, Category } from '../types';
+import { X, Plus } from 'lucide-react';
+import type { Task, Project, Priority, Stage } from '../types';
+import { categoryColor } from './Badge';
 
 interface TaskModalProps {
   task?: Task | null;
   project: Project;
+  categories: string[];
   onSave: (data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onAddCategory: (name: string) => void;
   onClose: () => void;
 }
 
 const priorities: Priority[] = ['low', 'medium', 'high', 'critical'];
 const stages: Stage[] = ['backlog', 'todo', 'in-progress', 'review', 'done'];
-const categories: Category[] = [
-  'development', 'design', 'marketing', 'research', 'operations', 'qa', 'devops', 'other',
-];
 
 const priorityLabels: Record<Priority, string> = {
   low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical',
@@ -21,18 +21,23 @@ const priorityLabels: Record<Priority, string> = {
 const stageLabels: Record<Stage, string> = {
   backlog: 'Backlog', todo: 'To Do', 'in-progress': 'In Progress', review: 'Review', done: 'Done',
 };
-const categoryLabels: Record<Category, string> = {
-  development: 'Development', design: 'Design', marketing: 'Marketing', research: 'Research',
-  operations: 'Operations', qa: 'QA', devops: 'DevOps', other: 'Other',
-};
 
-export function TaskModal({ task, project, onSave, onClose }: TaskModalProps) {
+export function TaskModal({ task, project, categories, onSave, onAddCategory, onClose }: TaskModalProps) {
   const [title, setTitle] = useState(task?.title ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
-  const [category, setCategory] = useState<Category>(task?.category ?? 'development');
+  const [category, setCategory] = useState(task?.category ?? categories[0] ?? '');
   const [priority, setPriority] = useState<Priority>(task?.priority ?? 'medium');
   const [dueDate, setDueDate] = useState(task?.dueDate ?? '');
   const [stage, setStage] = useState<Stage>(task?.stage ?? 'todo');
+  const [newCatInput, setNewCatInput] = useState('');
+  const [showNewCat, setShowNewCat] = useState(false);
+
+  // If categories list changes and selected category is gone, pick first available
+  useEffect(() => {
+    if (categories.length > 0 && !categories.includes(category)) {
+      setCategory(categories[0]);
+    }
+  }, [categories, category]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -41,6 +46,15 @@ export function TaskModal({ task, project, onSave, onClose }: TaskModalProps) {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  const handleAddCategory = () => {
+    const name = newCatInput.trim();
+    if (!name || categories.some((c) => c.toLowerCase() === name.toLowerCase())) return;
+    onAddCategory(name);
+    setCategory(name);
+    setNewCatInput('');
+    setShowNewCat(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,6 +103,7 @@ export function TaskModal({ task, project, onSave, onClose }: TaskModalProps) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Task title..."
               required
+              autoFocus
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
             />
           </div>
@@ -104,20 +119,73 @@ export function TaskModal({ task, project, onSave, onClose }: TaskModalProps) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition bg-white"
+          {/* Category */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-medium text-gray-700">Category</label>
+              <button
+                type="button"
+                onClick={() => setShowNewCat(!showNewCat)}
+                className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
               >
-                {categories.map((c) => (
-                  <option key={c} value={c}>{categoryLabels[c]}</option>
-                ))}
-              </select>
+                <Plus size={12} />
+                New category
+              </button>
             </div>
 
+            {showNewCat && (
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newCatInput}
+                  onChange={(e) => setNewCatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }}
+                  placeholder="Category name..."
+                  maxLength={40}
+                  autoFocus
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  disabled={!newCatInput.trim()}
+                  className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+
+            {categories.length === 0 ? (
+              <p className="text-xs text-gray-400 py-2">No categories yet. Create one above.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => {
+                  const { bg, text, border } = categoryColor(cat);
+                  const selected = category === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategory(cat)}
+                      className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
+                      style={{
+                        backgroundColor: selected ? bg : 'transparent',
+                        color: selected ? text : '#6b7280',
+                        borderColor: selected ? border : '#e5e7eb',
+                        outline: selected ? `2px solid ${border}` : 'none',
+                        outlineOffset: '1px',
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Priority</label>
               <select
@@ -141,7 +209,7 @@ export function TaskModal({ task, project, onSave, onClose }: TaskModalProps) {
               />
             </div>
 
-            <div>
+            <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Stage</label>
               <select
                 value={stage}
